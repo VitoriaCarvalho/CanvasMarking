@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <meta charset="utf-8" />
+    <title>CanvasDrawing</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+
+<style>
+    .btn {
+        background-color: #67159C;
+        border: none;
+        color: white;
+        padding: 10px 14px;
+        font-size: 14px;
+        cursor: pointer;
+    }
+
+    .btn:hover {
+        background-color: #40145D;
+    }
+</style>
+
+<body>
+
+    <canvas id="canvas" width="460" height="400" style="border:4px solid #d3d3d3;"></canvas>
+
+    <form id="frm1" action="/action_page.php">
+        <label for="myfile">Selecione um arquivo:</label>
+        <input type="file" id="myfile" name="myfile" accept=".jpg, .jpeg, .png, .txt"><br><br>
+        <button type="button" class="btn" onclick="choice()" button><i class="fa fa-upload" style="margin-right:10px;"></i>Carregar arquivo</button>
+        <button type="button" class="btn" onclick="saveCoordinates()" button><i class="fa fa-download" style="margin-right:10px;"></i>Salvar marcação</button>
+        <button type="button" class="btn" onclick="newMark()" button><i class="fa fa-plus" style="margin-right:10px;"></i>Nova marcação</button>
+    </form>
+
+    <script>
+
+        function choice() {
+
+            var extension = document.getElementById("myfile").value.split(".");
+            extension = extension[extension.length - 1]
+
+            if (extension != "txt") {
+                marking()
+            } else {
+                mask()
+            }
+        }
+
+        Xcoordinates = [[]]
+        Ycoordinates = [[]]
+        pos = 0;
+        new_marker = 0;
+
+        function newMark() {
+            console.log("Nova marcação!")
+            new_marker = 1;
+            pos++;
+        }
+
+        function marking() {
+
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const image = new Image(); // Using optional size for image
+            image.onload = drawImageActualSize; // Draw when image has loaded
+
+            var input = document.getElementById("myfile");
+            var fReader = new FileReader();
+            fReader.readAsDataURL(input.files[0]);
+            fReader.onloadend = function(event){
+                image.src = event.target.result;
+            }
+
+            //Zerando variáveis
+            Xcoordinates = [[]]
+            Ycoordinates = [[]]
+            pos = 0;
+            new_marker = 0;
+
+            function drawImageActualSize() {
+
+                canvas.width = this.naturalWidth;
+                canvas.height = this.naturalHeight;
+
+                console.log("Largura e altura da imagem:");
+                console.log(canvas.width, canvas.height);
+
+                ctx.drawImage(this, 0, 0, this.width, this.height);
+            }
+
+            canvas.onmousedown = function (evtd) {
+				xd = evtd.clientX;
+				yd = evtd.clientY;
+
+                if(new_marker == 1) {
+                    Xcoordinates.push([xd]);
+                    Ycoordinates.push([yd]);
+                    new_marker = 0;
+                } else {
+                    Xcoordinates[pos].push(xd);
+                    Ycoordinates[pos].push(yd);
+                }
+
+                console.log("Clique: ", xd, yd);
+
+                ctx.fillStyle = "#310E47";
+                ctx.fillRect(xd, yd, 5, 5);
+                ctx.fillStyle = "#4D2e8b57";
+
+                if(Xcoordinates[pos].length > 1){
+
+                    // Traçando uma linha do novo ponto para o ponto anterior
+                    x_anterior = Xcoordinates[pos][Xcoordinates[pos].length - 2]
+                    y_anterior = Ycoordinates[pos][Ycoordinates[pos].length - 2]
+                    ctx.beginPath();
+                    ctx.moveTo(x_anterior, y_anterior);
+                    ctx.lineTo(xd, yd);
+
+                    // Traçando uma linha do novo ponto para o primeiro ponto
+                    ctx.lineTo(Xcoordinates[pos][0], Ycoordinates[pos][0], xd, yd);
+                    ctx.fill();
+                }
+				
+			}
+        }
+
+        function saveCoordinates() {
+
+            text = "";
+
+            for (var i = 0; i < Xcoordinates.length; i++) {
+                for (var j = 0; j < Xcoordinates[i].length; j++) {
+                    text += Xcoordinates[i][j] + "," + Ycoordinates[i][j] + "\n";
+                }
+                text += Xcoordinates[i][0] + "," + Ycoordinates[i][0] + "\n";
+                text += "new\n";
+            }
+
+            var filename = document.getElementById("myfile").value.split("\\");
+            filename = filename[filename.length - 1].split('.')[0] + ".txt";
+
+            var element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+            element.setAttribute('download', filename);
+
+            element.style.display = 'none';
+            document.body.appendChild(element);
+
+            element.click();
+
+            document.body.removeChild(element);
+        }
+
+        function mask() {
+
+            var input = document.getElementById("myfile");
+
+            function drawMask(text) {
+
+                var arr = text.split("new\n");
+                arr.pop();
+
+                var X = [];
+                var Y = [];
+
+                for (var i = 0; i < arr.length; i++) {
+                    coord = arr[i].split("\n")
+                    coord.pop()
+                    x_line = [];
+                    y_line = [];
+                    for (var j = 0; j < coord.length; j++) {
+                        x_line.push(parseInt(coord[j].split(",")[0]));
+                        y_line.push(parseInt(coord[j].split(",")[1]));
+                    }
+                    X.push(x_line);
+                    Y.push(y_line);
+                }
+                
+                X_concat = [].concat.apply([], X)
+                Y_concat = [].concat.apply([], Y)
+
+                Xmax = Math.max.apply(null, X_concat);
+                Ymax = Math.max.apply(null, Y_concat);
+                Xmin = Math.min.apply(null, X_concat);
+                Ymin = Math.min.apply(null, Y_concat);
+
+                console.log(Xmax, Ymax, Xmin, Ymin)
+
+                for (var i = 0; i < X.length; i++) {
+                    for (var j = 0; j < X[i].length; j++) {
+                        X[i][j] = X[i][j] - Xmin;
+                        Y[i][j] = Y[i][j] - Ymin;
+                    }
+                }
+
+                console.log("Coordenadas da marcação após mapeamento para a bounding box:");
+                console.log(X);
+                console.log(Y);
+
+                X_concat = [].concat.apply([], X)
+                Y_concat = [].concat.apply([], Y)
+
+                Xmax = Math.max.apply(null, X_concat);
+                Ymax = Math.max.apply(null, Y_concat);
+                Xmin = Math.min.apply(null, X_concat);
+                Ymin = Math.min.apply(null, Y_concat);
+
+                console.log("Xmax: ", Xmax, "Ymax: ", Ymax, "Xmin: ", Xmin, "Ymin: ", Ymin);
+
+                const canvas = document.getElementById('canvas');
+
+                const ctx = canvas.getContext('2d');
+                //ctx.fillStyle = "#000000";
+                //ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.beginPath();
+
+                canvas.width = Xmax;
+                canvas.height = Ymax;
+
+                ctx.fillStyle = "#000000";
+
+                for (var i = 0; i < X.length; i++) {
+                    ctx.moveTo(X[i][0], Y[i][0]);
+                    for (var j = 0; j < X[i].length; j++) {
+                        ctx.lineTo(X[i][j], Y[i][j]);
+                        //ctx.lineTo(Xcoordinates[0], Ycoordinates[0], X[i], Y[i]);
+                        ctx.fill();
+                    }
+                }
+
+            }
+
+            var input = document.getElementById("myfile");
+            var fReader = new FileReader();
+            fReader.readAsText(input.files[0]);
+            fReader.onload = function(){
+                coordinates = fReader.result;
+                drawMask(coordinates);
+            }
+        }
+    </script>
+	
+</body>
+</html>
